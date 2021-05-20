@@ -62,7 +62,7 @@ func incomingMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func convertTime(s *discordgo.Session, m *discordgo.MessageCreate) {
-	timeMatcher := regexp.MustCompile(`(\d{1,2}):?(\d{2})? ?([a,A,p,P][m,M])? (?P<timezone>\w{3})`)
+	timeMatcher := regexp.MustCompile(`(\d{1,2}):?(\d{2})? ?([a,A,p,P][m,M])? (?P<timezone>[A-Za-z]{3,})`)
 
 	if timeMatcher.MatchString(m.Content) {
 		matches := timeMatcher.FindStringSubmatch(m.Content)
