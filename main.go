@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -28,7 +30,7 @@ func main() {
 	dg.AddHandler(ready)
 	dg.AddHandler(incomingMessageHandler)
 
-	dg.Identify.Intents = discordgo.IntentsGuildMessages
+	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 
 	err = dg.Open()
 	check(err)
@@ -43,9 +45,6 @@ func main() {
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	log.Print("Bot ready")
-	guild, err := s.Guild("689512841887481875")
-	check(err)
-	log.Print(guild.Name)
 }
 
 func incomingMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -53,8 +52,28 @@ func incomingMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.Contains(m.Author.Username, "magikid") {
-		return
+	timeMatcher := regexp.MustCompile(`(\d{1,2}):?(\d{2})? ?([a,A,p,P][m,M])? (?P<timezone>\w{3})`)
+
+	if timeMatcher.MatchString(m.Content) {
+		matches := timeMatcher.FindStringSubmatch(m.Content)
+		hours := matches[1]
+		minutes := matches[2]
+		if len(minutes) < 2 {
+			minutes = "00"
+		}
+		ampm := matches[3]
+		timezone := matches[4]
+
+		longform := fmt.Sprintf("%v:%v %v %v", hours, minutes, strings.ToUpper(ampm), strings.ToUpper(timezone))
+
+		currentTime, err := time.Parse("3:04 PM MST", longform)
+		check(err)
+
+		channel, err := s.UserChannelCreate(m.Author.ID)
+		check(err)
+
+		_, err = s.ChannelMessageSend(channel.ID, currentTime.UTC().String())
+		check(err)
 	}
 
 	if m.Content != "ping" {
