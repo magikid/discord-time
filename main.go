@@ -24,9 +24,6 @@ func main() {
 	dg, err := discordgo.New(fmt.Sprintf("Bot %s", bot_token))
 	check(err)
 
-	user, err := dg.User("@me")
-	log.Printf("id: %s, username: %s", user.ID, user.Username)
-
 	dg.AddHandler(ready)
 	dg.AddHandler(incomingMessageHandler)
 
@@ -52,10 +49,24 @@ func incomingMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	go convertTime(s, m)
+
+	if m.Content != "ping" {
+		return
+	}
+
+	dmChannel, err := s.UserChannelCreate(m.Author.ID)
+	check(err)
+	_, err = s.ChannelMessageSend(dmChannel.ID, "pong")
+	check(err)
+}
+
+func convertTime(s *discordgo.Session, m *discordgo.MessageCreate) {
 	timeMatcher := regexp.MustCompile(`(\d{1,2}):?(\d{2})? ?([a,A,p,P][m,M])? (?P<timezone>\w{3})`)
 
 	if timeMatcher.MatchString(m.Content) {
 		matches := timeMatcher.FindStringSubmatch(m.Content)
+
 		hours := matches[1]
 		minutes := matches[2]
 		if len(minutes) < 2 {
@@ -67,23 +78,12 @@ func incomingMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		longform := fmt.Sprintf("%v:%v %v %v", hours, minutes, strings.ToUpper(ampm), strings.ToUpper(timezone))
 
 		currentTime, err := time.Parse("3:04 PM MST", longform)
-		check(err)
+		if err != nil {
+			log.Printf("Error parsing time: %v", err.Error())
+			return
+		}
 
-		channel, err := s.UserChannelCreate(m.Author.ID)
-		check(err)
-
-		_, err = s.ChannelMessageSend(channel.ID, currentTime.UTC().String())
+		_, err = s.ChannelMessageSendReply(m.ChannelID, currentTime.UTC().Format("3:04 PM UTC"), m.Reference())
 		check(err)
 	}
-
-	if m.Content != "ping" {
-		return
-	}
-
-	channel, err := s.UserChannelCreate(m.Author.ID)
-	check(err)
-	_, err = s.ChannelMessageSend(channel.ID, "pong")
-	check(err)
-
-	log.Printf("Recieved message: %s", m.Content)
 }
